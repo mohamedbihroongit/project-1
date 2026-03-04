@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Seat Planner - Upload</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Card Container */
+        .upload-container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 30px;
+        }
+
+        /* File Input Styling */
+        input[type="file"] {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 2px dashed #764ba2;
+            border-radius: 8px;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        input[type="file"]:hover {
+            background-color: #f8f4ff;
+        }
+
+        /* Button Styling */
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #764ba2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.3s;
+        }
+
+        button:hover {
+            background: #5a3791;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Progress Indicator (Optional) */
+        .step-indicator {
+            font-size: 0.8rem;
+            color: #764ba2;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="upload-container">
+        <span class="step-indicator">Step 1 of 3</span>
+        <h2>Exam System</h2>
+        <p>Upload your student lists (.xlsx or .csv) to begin the seat allocation process.</p>
+        
+        <form action="/hall_info" method="post" enctype="multipart/form-data">
+            <input type="file" name="student_list" multiple required>
+            <button type="submit">Next: Hall Information &rarr;</button>
+        </form>
+    </div>
+
+</body>
+</html>

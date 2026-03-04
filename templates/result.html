@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
+        td { border: 1px solid black; padding: 10px; text-align: center; font-size: 10px; word-wrap: break-word; }
+        .btn { background: #ff9800; color: white; padding: 10px; border: none; cursor: pointer; margin-bottom: 20px; }
+        @media print { .btn { display: none; } }
+    </style>
+</head>
+<body>
+    <h2>Hall: {{ hall }}</h2>
+    <button class="btn" onclick="window.print()">Save as PDF</button>
+    <table>
+        {% for row in grid %}
+        <tr>
+            {% for seat in row %}
+            <td>{{ seat }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head><title>Hall Details</title></head>
+<body style="text-align:center; padding:50px; font-family:sans-serif;">
+    <h2>Step 2: Hall Configuration</h2>
+    <form action="/generate" method="post">
+        <input type="text" name="hall_name" placeholder="Hall Name" required><br><br>
+        <input type="number" name="rows" placeholder="Rows" required><br><br>
+        <input type="number" name="cols" placeholder="Cols" required><br><br>
+        {% for s in students %}
+            <input type="hidden" name="students" value="{{ s }}">
+        {% endfor %}
+        <button type="submit" style="padding:10px 20px; background:green; color:white; border:none;">Generate Seating</button>
+    </form>
+</body>
+</html>

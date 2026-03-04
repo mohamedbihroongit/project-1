@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Preview Data</title>
+</head>
+<body style="text-align:center; font-family:Arial;">
+
+<h2>Uploaded Files Data Preview</h2>
+
+<table border="1" align="center" cellpadding="5">
+    {% for row in data %}
+    <tr>
+        {% for cell in row %}
+        <td>{{ cell }}</td>
+        {% endfor %}
+    </tr>
+    {% endfor %}
+</table>
+
+<br><br>
+
+<a href="/download_pdf">
+    <button>Download PDF</button>
+</a>
+
+</body>
+</html>
