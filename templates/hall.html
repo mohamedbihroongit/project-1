@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hall Arrangement</title>
+</head>
+<body style="text-align:center; font-family:Arial;">
+
+<h2>Hall Seat Arrangement</h2>
+
+{% for hall in halls %}
+<h3>Hall {{ loop.index }}</h3>
+
+<table border="1" align="center" cellpadding="10">
+    {% for row in hall %}
+    <tr>
+        {% for student in row %}
+        <td>
+            {{ student.roll }} <br>
+            {{ student.name }} <br>
+            ({{ student.dept }})
+        </td>
+        {% endfor %}
+    </tr>
+    {% endfor %}
+</table>
+
+<br><br>
+{% endfor %}
+
+<a href="/download_pdf">
+    <button>Download PDF</button>
+</a>
+
+</body>
+</html>
