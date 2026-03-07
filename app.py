@@ -1,64 +1,172 @@
+from flask import Flask, render_template, request, send_file
 import os
-import pandas as pd
-from flask import Flask, render_template, request, send_file, flash
+import csv
+import pandas as pd  # Pandas use pannuradhala idhu mela irukkanum
 from openpyxl import load_workbook
-from openpyxl.styles import Alignment
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
 
-# Render-la temporary files-ku /tmp folder thaan use pannanum
-UPLOAD_FOLDER = '/tmp/uploads'
+# --- SERVER PATH UPDATES (Render Friendly) ---
+# Render-la files save panna /tmp folder thaan best
+UPLOAD_FOLDER = "/tmp/uploads"
+PDF_FILE = "/tmp/Hall_Seat_Arrangement.pdf"
+
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# --- 1. CRON-JOB KKAANA PING ROUTE ---
+students_global = []
+hall_data_global = []
+
+# -------- NEW PING ROUTE (For Cron-job) --------
 @app.route('/ping')
 def ping():
-    # Idhu cron-job-kku mattum "OK" sollum, appo "Output too large" error varaathu
     return "OK", 200
+# -----------------------------------------------
 
-# --- 2. HOME PAGE ---
-@app.route('/')
-def index():
-    return render_template('index.html')
+# -------- READ EXCEL --------
+def read_excel(filepath):
+    students = []
+    # Pandas use panni easy-ah read pannalam (Error kammiyaagum)
+    try:
+        df = pd.read_excel(filepath)
+        for _, row in df.iterrows():
+            students.append({
+                "roll": str(row.iloc[0]),
+                "name": str(row.iloc[1]),
+                "dept": str(row.iloc[2]) if len(row) > 2 else "NA"
+            })
+    except Exception as e:
+        print(f"Excel error: {e}")
+    return students
 
-# --- 3. EXCEL PROCESSING ROUTE ---
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return "No file part"
+# -------- READ CSV --------
+def read_csv(filepath):
+    students = []
+    try:
+        with open(filepath, newline='', encoding="utf-8") as file:
+            reader = csv.reader(file)
+            next(reader, None)
+            for row in reader:
+                if len(row) >= 2:
+                    students.append({
+                        "roll": row[0],
+                        "name": row[1],
+                        "dept": row[2] if len(row) > 2 else "NA"
+                    })
+    except Exception as e:
+        print(f"CSV error: {e}")
+    return students
+
+# -------- ROUND ROBIN --------
+def round_robin_merge(file_lists):
+    merged = []
+    if not file_lists: return []
+    max_len = max(len(lst) for lst in file_lists)
+    for i in range(max_len):
+        for lst in file_lists:
+            if i < len(lst):
+                merged.append(lst[i])
+    return merged
+
+# -------- DISTRIBUTE --------
+def distribute_students(students, halls, seats_per_row, rows_per_hall, alternate=True):
+    hall_data = []
+    index = 0
+    for h in range(halls):
+        arranged = [[None for _ in range(seats_per_row)] for _ in range(rows_per_hall)]
+        for r in range(rows_per_hall):
+            for c in range(seats_per_row):
+                if alternate:
+                    if (r + c) % 2 == 0 and index < len(students):
+                        arranged[r][c] = students[index]
+                        index += 1
+                else:
+                    if index < len(students):
+                        arranged[r][c] = students[index]
+                        index += 1
+        hall_data.append(arranged)
+    return hall_data
+
+# -------- ROUTES --------
+@app.route("/")
+def home():
+    return render_template("upload.html")
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    global students_global, hall_data_global
+    students_global = []
+    hall_data_global = []
+
+    files = request.files.getlist("files")
+    halls = int(request.form.get("halls", 0))
+    seats_per_row = int(request.form.get("seats", 0))
+    rows_per_hall = int(request.form.get("rows", 0))
+
+    file_lists = []
+    for file in files:
+        if file.filename == '': continue
+        filename = file.filename.lower()
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filepath)
+
+        if filename.endswith(".xlsx") or filename.endswith(".xls"):
+            file_lists.append(read_excel(filepath))
+        elif filename.endswith(".csv"):
+            file_lists.append(read_csv(filepath))
     
-    file = request.files['file']
-    if file.filename == '':
-        return "No selected file"
-    
-    if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-        # File-ah /tmp folder-la save pandrom
-        input_path = os.path.join(UPLOAD_FOLDER, file.filename)
-        file.save(input_path)
-        
-        output_filename = "Arranged_" + file.filename
-        output_path = os.path.join(UPLOAD_FOLDER, output_filename)
+    if not file_lists:
+        return "No valid files uploaded."
 
-        try:
-            # --- Inga unga logic-ah start pannunga ---
-            df = pd.read_excel(input_path)
-            
-            # (Inga neenga seating arrangement logic-ah add pannikkalam)
-            # Sample logic: Data-va thirumbavum excel-ah mathuroam
-            df.to_excel(output_path, index=False)
-            
-            # Processing mudinja apram file-ah download panna anuppuroam
-            return send_file(output_path, as_attachment=True)
-            
-        except Exception as e:
-            return f"Error processing file: {str(e)}"
-    
-    return "Invalid file format. Please upload an Excel file."
+    if len(file_lists) == 1:
+        students_global = file_lists[0]
+        hall_data_global = distribute_students(students_global, halls, seats_per_row, rows_per_hall, alternate=True)
+    else:
+        students_global = round_robin_merge(file_lists)
+        hall_data_global = distribute_students(students_global, halls, seats_per_row, rows_per_hall, alternate=False)
 
-if __name__ == '__main__':
-    # Render automatic-ah PORT assign pannum, illana 5000-la run aagum
+    return render_template("hall.html", halls=hall_data_global)
+
+@app.route("/download_pdf")
+def download_pdf():
+    global hall_data_global
+    if not hall_data_global:
+        return "No data to generate PDF."
+
+    doc = SimpleDocTemplate(PDF_FILE)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    for i, hall in enumerate(hall_data_global):
+        elements.append(Paragraph(f"Hall {i + 1}", styles["Title"]))
+        elements.append(Spacer(1, 20))
+        table_data = []
+        for row in hall:
+            row_data = []
+            for student in row:
+                if student:
+                    row_data.append(f"{student['roll']}\n{student['name']}\n{student['dept']}")
+                else:
+                    row_data.append("")
+            table_data.append(row_data)
+        table = Table(table_data)
+        table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(table)
+        elements.append(PageBreak())
+
+    doc.build(elements)
+    return send_file(PDF_FILE, as_attachment=True)
+
+# -------- SERVER CONFIG --------
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
