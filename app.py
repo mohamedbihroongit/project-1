@@ -8,28 +8,30 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 
 app = Flask(__name__)
-app.secret_key = "secret_key_here"
+app.secret_key = "mohamed_secret_key"
 
-# Render-la temporary files-ku /tmp thaan correct
+# Render-la temporary files-ku /tmp folder dhaan use pannanum
 UPLOAD_FOLDER = "/tmp/uploads"
 PDF_FILE = "/tmp/Hall_Seat_Arrangement.pdf"
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Global variables to store data temporarily
 students_global = []
 hall_data_global = []
 
+# --- 1. CRON-JOB PING ROUTE ---
 @app.route('/ping')
 def ping():
     return "OK", 200
 
+# --- 2. HOME PAGE ---
 @app.route("/")
 def home():
-    # Unga html file name 'upload.html' thaane? Adhu correct-ah irukanum.
     return render_template("upload.html")
 
-# -------- EXCEL/CSV PROCESSING LOGIC --------
+# --- 3. HELPER FUNCTIONS ---
 def read_excel(filepath):
     students = []
     try:
@@ -52,7 +54,11 @@ def read_csv(filepath):
             next(reader, None)
             for row in reader:
                 if len(row) >= 2:
-                    students.append({"roll": row[0], "name": row[1], "dept": row[2] if len(row) > 2 else "NA"})
+                    students.append({
+                        "roll": row[0], 
+                        "name": row[1], 
+                        "dept": row[2] if len(row) > 2 else "NA"
+                    })
     except Exception as e:
         print(f"CSV error: {e}")
     return students
@@ -63,7 +69,8 @@ def round_robin_merge(file_lists):
     max_len = max(len(lst) for lst in file_lists)
     for i in range(max_len):
         for lst in file_lists:
-            if i < len(lst): merged.append(lst[i])
+            if i < len(lst):
+                merged.append(lst[i])
     return merged
 
 def distribute_students(students, halls, seats_per_row, rows_per_hall, alternate=True):
@@ -84,6 +91,7 @@ def distribute_students(students, halls, seats_per_row, rows_per_hall, alternate
         hall_data.append(arranged)
     return hall_data
 
+# --- 4. UPLOAD & PROCESS ROUTE ---
 @app.route("/upload", methods=["POST"])
 def upload():
     global students_global, hall_data_global
@@ -97,12 +105,14 @@ def upload():
         if not file.filename: continue
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
+        
         if file.filename.lower().endswith((".xlsx", ".xls")):
             file_lists.append(read_excel(filepath))
         elif file.filename.lower().endswith(".csv"):
             file_lists.append(read_csv(filepath))
     
-    if not file_lists: return "No valid files."
+    if not file_lists:
+        return "No valid files uploaded."
 
     if len(file_lists) == 1:
         students_global = file_lists[0]
@@ -111,28 +121,47 @@ def upload():
         students_global = round_robin_merge(file_lists)
         hall_data_global = distribute_students(students_global, halls, seats_per_row, rows_per_hall, alternate=False)
 
-    # Make sure 'hall.html' exists in your templates folder
     return render_template("hall.html", halls=hall_data_global)
 
+# --- 5. PDF GENERATION ROUTE ---
 @app.route("/download_pdf")
 def download_pdf():
     global hall_data_global
-    if not hall_data_global: return "No data."
+    if not hall_data_global:
+        return "No data to generate PDF."
+
     doc = SimpleDocTemplate(PDF_FILE)
     elements = []
     styles = getSampleStyleSheet()
+
     for i, hall in enumerate(hall_data_global):
         elements.append(Paragraph(f"Hall {i + 1}", styles["Title"]))
+        elements.append(Spacer(1, 20))
         table_data = []
         for row in hall:
-            row_data = [f"{s['roll']}\n{s['name']}" if s else "" for s in row]
+            row_data = []
+            for student in row:
+                if student:
+                    row_data.append(f"{student['roll']}\n{student['name']}")
+                else:
+                    row_data.append("")
             table_data.append(row_data)
+        
         table = Table(table_data)
-        table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 1, colors.black), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+        table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
         elements.append(table)
         elements.append(PageBreak())
+
     doc.build(elements)
     return send_file(PDF_FILE, as_attachment=True)
 
+# --- 6. SERVER START (Fix for Render Port Detection) ---
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+    # Render assignment-ku PORT edukkum, illana 5000 use pannum
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
+
